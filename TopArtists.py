@@ -6,7 +6,7 @@ import streamlit as st
 # Access the Spotify credentials securely from Streamlit secrets
 client_id = st.secrets["spotify"]["client_id"]
 client_secret = st.secrets["spotify"]["client_secret"]
-redirect_uri = "http://localhost:8501/callback"
+redirect_uri = "https://mikaylanorton-vibesync.streamlit.app/callback"
 
 # Set up the Spotify API client with the credentials from secrets
 sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id,
