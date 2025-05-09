@@ -6,6 +6,9 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from urllib.parse import urlencode
+import warnings
+
+warnings.filterwarnings("ignore")
 
 # Access the Spotify credentials securely from Streamlit secrets
 client_id = st.secrets["spotify"]["client_id"]
@@ -21,7 +24,7 @@ sp_oauth = SpotifyOAuth(client_id=client_id,
 # Fetch user's top artists
 def get_top_artists():
     # Ensure authentication is handled
-    token_info = sp_oauth.get_access_token(st.query_params().get("code", [None])[0])
+    token_info = sp_oauth.get_access_token(st.experimental_get_query_params().get("code", [None])[0])
     if token_info:
         sp = spotipy.Spotify(auth=token_info["access_token"])
         top_artists = sp.current_user_top_artists(limit=10, time_range='long_term')
@@ -76,7 +79,7 @@ def main():
     # First button: OAuth and display top 10 artists
     if choice == "Login and View Top Artists":
         # If we're already authenticated
-        query_params = st.query_params()
+        query_params = st.experimental_get_query_params()
         if "code" in query_params:
             st.write("Successfully logged in!")
 
