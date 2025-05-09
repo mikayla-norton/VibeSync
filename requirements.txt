@@ -1,5 +1,5 @@
 numpy>=1.25.0
-streamlit
+streamlit>=1.21.0
 spotipy
 pandas
 scikit-learn
