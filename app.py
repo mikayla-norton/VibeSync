@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from urllib.parse import urlencode
 
 # Access the Spotify credentials securely from Streamlit secrets
 client_id = st.secrets["spotify"]["client_id"]
@@ -89,6 +90,16 @@ def main():
     if choice == "Login and View Top Artists":
         if st.button("Login with Spotify"):
             st.write("Logging in...")
+
+            # URL for Spotify OAuth authorization request
+            auth_url = sp.auth_manager.get_authorize_url()
+            st.markdown(f"[Click here to login with Spotify]({auth_url})")
+
+            st.write("After logging in, please return to the app.")
+
+            # Display a message to let users know they're in the login process
+            st.write("You will be redirected to Spotify for authentication. Once authenticated, you will be able to see your top artists.")
+
             user_top_artists = get_top_artists(limit=30)
             st.write("### Your Top 10 Artists:")
             st.write(user_top_artists[['artist_name', 'genres']].head(10))
