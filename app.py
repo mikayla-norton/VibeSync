@@ -9,7 +9,6 @@ from urllib.parse import urlencode
 import warnings
 
 warnings.filterwarnings("ignore")
-st.set_option('logger.level', 'error')
 
 # Access the Spotify credentials securely from Streamlit secrets
 client_id = st.secrets["spotify"]["client_id"]
