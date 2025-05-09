@@ -1,6 +1,4 @@
-[server]
-headless = true
-enableCORS = false
+
 
 [logger]
 level = "error"  # suppresses most Streamlit logs (set to "warning" for more visibility)
@@ -13,5 +11,3 @@ secondaryBackgroundColor="#191414"
 textColor="#FFFFFF"
 font="sans serif"
 
-[global]
-developmentMode = false
