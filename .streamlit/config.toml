@@ -12,3 +12,6 @@ backgroundColor="#121212"  # Spotify dark background
 secondaryBackgroundColor="#191414"
 textColor="#FFFFFF"
 font="sans serif"
+
+[global]
+developmentMode = false
