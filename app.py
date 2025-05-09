@@ -40,6 +40,9 @@ def get_top_artists():
 
 # Fetch artist's genre and image information
 def get_artist_genre(artist_name):
+    token_info = sp_oauth.get_access_token(st.experimental_get_query_params().get("code", [None])[0])
+    if token_info:
+        sp = spotipy.Spotify(auth=token_info["access_token"])
     result = sp.search(q=f"artist:{artist_name}", type='artist', limit=5)
     if result['artists']['items']:
         artist = result['artists']['items'][0]
