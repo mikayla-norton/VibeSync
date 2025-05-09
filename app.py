@@ -6,11 +6,17 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# Set up the Spotify API client with your app credentials
-sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id="bbbd08ee2e0c4aa4be3fd103e0c5b343",
-                                               client_secret="fb7060c737bf4093aed4009d6d5e8a08",
-                                               redirect_uri="http://localhost:8888/callback",
+# Access the Spotify credentials securely from Streamlit secrets
+client_id = st.secrets["spotify"]["client_id"]
+client_secret = st.secrets["spotify"]["client_secret"]
+redirect_uri = "http://localhost:8501/callback"
+
+# Set up the Spotify API client with the credentials from secrets
+sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id,
+                                               client_secret=client_secret,
+                                               redirect_uri=redirect_uri,
                                                scope=["user-library-read", "user-top-read", "playlist-read-private"]))
+
 
 # Fetch user's top artists
 def get_top_artists(limit=10):
