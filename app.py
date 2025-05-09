@@ -6,26 +6,22 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from urllib.parse import urlencode
-import warnings
-
-warnings.filterwarnings("ignore")
 
 # Access the Spotify credentials securely from Streamlit secrets
-client_id = st.secrets["spotify"]["client_id"]
+client_id     = st.secrets["spotify"]["client_id"]
 client_secret = st.secrets["spotify"]["client_secret"]
-redirect_uri = "https://mikaylanorton-vibesync.streamlit.app/callback"
+redirect_uri  = "https://mikaylanorton-vibesync.streamlit.app/callback"
 
 # SpotifyOAuth setup
 sp_oauth = SpotifyOAuth(
     client_id=client_id,
     client_secret=client_secret,
     redirect_uri=redirect_uri,
-    scope=["user-library-read", "user-top-read", "playlist-read-private"]
+    scope=["user-library-read","user-top-read","playlist-read-private"]
 )
 
 # Fetch user's top artists
 def get_top_artists():
-    # pull the OAuth "code" from the new API
     code = st.query_params.get("code", [None])[0]
     token_info = sp_oauth.get_access_token(code)
     if token_info:
@@ -33,48 +29,40 @@ def get_top_artists():
         top_artists = sp.current_user_top_artists(limit=10, time_range='long_term')
         return pd.DataFrame([{
             'artist_name': artist['name'],
-            'genres': artist['genres'],
-            'popularity': artist['popularity'],
-            'image_url': artist['images'][0]['url'] if artist['images'] else None
+            'genres'     : artist['genres'],
+            'popularity' : artist['popularity'],
+            'image_url'  : artist['images'][0]['url'] if artist['images'] else None
         } for artist in top_artists['items']])
-    else:
-        return None
-
+    return None
 
 # Fetch artist's genre and image information
 def get_artist_genre(artist_name):
     code = st.query_params.get("code", [None])[0]
     token_info = sp_oauth.get_access_token(code)
-    if not token_info:
-        return [], None
-
-    sp = spotipy.Spotify(auth=token_info["access_token"])
-    result = sp.search(q=f"artist:{artist_name}", type='artist', limit=5)
-    if result['artists']['items']:
-        artist = result['artists']['items'][0]
-        genres = artist.get('genres', [])
-        image_url = artist['images'][0]['url'] if artist['images'] else None
-        return genres, image_url
-    else:
-        return [], None
-
+    if token_info:
+        sp = spotipy.Spotify(auth=token_info["access_token"])
+        result = sp.search(q=f"artist:{artist_name}", type='artist', limit=5)
+        if result['artists']['items']:
+            artist    = result['artists']['items'][0]
+            genres    = artist.get('genres', [])
+            image_url = artist['images'][0]['url'] if artist['images'] else None
+            return genres, image_url
+    return [], None
 
 # Build user profile based on genres of top artists
 def build_user_profile(user_top_artists):
-    tfidf = TfidfVectorizer(stop_words='english')
-    genres_list = [' '.join(artist['genres']) for artist in user_top_artists]
-    genre_matrix = tfidf.fit_transform(genres_list)
-    user_profile = np.mean(genre_matrix.toarray(), axis=0)
-    return user_profile, tfidf
-
+    tfidf       = TfidfVectorizer(stop_words='english')
+    genres_list = [' '.join(a['genres']) for a in user_top_artists]
+    matrix      = tfidf.fit_transform(genres_list)
+    profile     = np.mean(matrix.toarray(), axis=0)
+    return profile, tfidf
 
 # Calculate similarity between user profile and artist genres
 def calculate_compatibility(user_profile, artist_name, tfidf):
     artist_genres, _ = get_artist_genre(artist_name)
-    artist_vector = tfidf.transform([' '.join(artist_genres)]).toarray()
-    similarity_score = cosine_similarity(user_profile.reshape(1, -1), artist_vector)[0][0]
-    return similarity_score
-
+    artist_vec       = tfidf.transform([' '.join(artist_genres)]).toarray()
+    score            = cosine_similarity(user_profile.reshape(1,-1), artist_vec)[0][0]
+    return score
 
 # Streamlit app layout and flow
 def main():
@@ -83,59 +71,52 @@ def main():
     st.markdown("Log in to your Spotify account and analyze your top artists or check compatibility with new ones!")
 
     st.sidebar.title("Navigation")
-    choice = st.sidebar.radio("Choose an option", ("Login and View Top Artists", "Artist Compatibility Analysis"))
+    choice = st.sidebar.radio("Choose an option",
+                              ("Login and View Top Artists", "Artist Compatibility Analysis"))
 
-    # grab the query params once
-    query_params = st.query_params
+    params = st.query_params  # <- no parentheses
 
     if choice == "Login and View Top Artists":
-        if "code" in query_params:
-            st.write("Successfully logged in!")
-
-            user_top_artists = get_top_artists()
-            if user_top_artists is not None:
+        if "code" in params:
+            st.success("Successfully logged in!")
+            df = get_top_artists()
+            if df is not None:
                 st.write("### Your Top 10 Artists:")
-                st.write(user_top_artists[['artist_name', 'genres']])
-
-                # Display artist images
-                for _, row in user_top_artists.iterrows():
+                st.write(df[['artist_name','genres']])
+                for _, row in df.iterrows():
                     st.write(f"**{row['artist_name']}**")
                     st.write(f"Genres: {', '.join(row['genres'])}")
                     if row['image_url']:
                         st.image(row['image_url'], width=100)
                     st.markdown("---")
             else:
-                st.error("There was an issue with your authentication. Please try again.")
+                st.error("Authentication failed. Try again.")
         else:
             auth_url = sp_oauth.get_authorize_url()
-            st.markdown(f"[Click here to login with Spotify]({auth_url})")
-            st.write("After logging in, please return to the app.")
+            st.markdown(f"[Login with Spotify]({auth_url})")
+            st.info("After logging in, return here to see your top artists.")
 
     if choice == "Artist Compatibility Analysis":
-        artist_input = st.text_area("Enter a list of artist names (comma-separated):")
+        artist_input = st.text_area("Enter artist names (comma-separated):")
         if st.button("Analyze Compatibility"):
             if not artist_input:
                 st.error("Please enter at least one artist name.")
                 return
 
-            artist_names = [a.strip() for a in artist_input.split(",")]
-            user_top_artists = get_top_artists()
-            if user_top_artists is None:
-                st.error("You need to log in first (go to “Login and View Top Artists”).")
+            user_df = get_top_artists()
+            if user_df is None:
+                st.error("You must log in first!")
                 return
 
-            user_profile, tfidf = build_user_profile(user_top_artists.to_dict(orient='records'))
-
-            for artist_name in artist_names:
-                st.write(f"\n### Results for {artist_name}:")
-                score = calculate_compatibility(user_profile, artist_name, tfidf)
+            profile, tfidf = build_user_profile(user_df.to_dict(orient='records'))
+            for artist in [a.strip() for a in artist_input.split(",")]:
+                st.write(f"### {artist}")
+                score = calculate_compatibility(profile, artist, tfidf)
                 st.write(f"Compatibility score: {score:.2f}")
-
-                genres, img = get_artist_genre(artist_name)
+                genres, img = get_artist_genre(artist)
                 st.write(f"Genres: {', '.join(genres)}")
                 if img:
                     st.image(img, width=100)
-
 
 if __name__ == "__main__":
     main()
