@@ -1,2 +1,5 @@
 .streamlit/secrets.toml
 .venv/
+.cache
+TopArtists.py
+UserProfile.py
