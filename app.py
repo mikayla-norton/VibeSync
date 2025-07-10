@@ -60,9 +60,13 @@ def calculate_compatibility(user_profile, artist_name, tfidf, sp):
 
 # Main app
 def main():
-    st.title("Spotify Artist Compatibility Analysis")
+    st.title("VibeSync: Spotify Artist Compatibility Analysis")
     st.markdown("## Welcome to the Artist Compatibility Analyzer!")
 
+    st.set_page_config(page_title='VibeSync', 
+                                    initial_sidebar_state='expanded', 
+                                    page_icon=':musical_note:', 
+                                    layout='wide') 
     # Handle Spotify OAuth
     query_params = st.query_params
     code = query_params.get("code", [None])[0]
