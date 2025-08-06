@@ -23,34 +23,37 @@ def authenticate_spotify():
         cache_path=".spotify_cache",
         show_dialog=True
     )
-    
-    token_info = oauth.get_cached_token()
 
-    if not token_info:
+    # Use session_state to store token
+    if 'token_info' not in st.session_state:
+        st.session_state.token_info = oauth.get_cached_token()
+
+    # If no token, attempt to authenticate
+    if not st.session_state.token_info:
         query_params = st.query_params
         code = query_params.get("code")
 
-        if not code:
-            auth_url = oauth.get_authorize_url()
-            st.markdown(f"[🎧 Authenticate with Spotify]({auth_url})")
-            st.stop()
-        else:
+        if code:
             try:
                 token_info = oauth.get_access_token(code, check_cache=False)
+                st.session_state.token_info = token_info
                 st.query_params.clear()
+                st.rerun()
             except spotipy.SpotifyOauthError as e:
-                st.error(f"Spotify authentication failed: {e}")
+                st.error(f"Authentication error: {e}")
                 auth_url = oauth.get_authorize_url()
-                st.markdown(f"[🎧 Retry Spotify Login]({auth_url})")
+                st.markdown(f"[🎧 Retry Login]({auth_url})")
                 st.stop()
+        else:
+            auth_url = oauth.get_authorize_url()
+            st.markdown(f"[🎧 Log in with Spotify]({auth_url})")
+            st.stop()
 
-    # Verify token validity explicitly (refresh if needed)
-    if oauth.is_token_expired(token_info):
-        token_info = oauth.refresh_access_token(token_info['refresh_token'])
+    # Refresh token if expired
+    if oauth.is_token_expired(st.session_state.token_info):
+        st.session_state.token_info = oauth.refresh_access_token(st.session_state.token_info['refresh_token'])
 
-    return spotipy.Spotify(auth=token_info["access_token"])
-
-
+    return spotipy.Spotify(auth=st.session_state.token_info["access_token"])
 
 # ------------------ Data Fetching ------------------ #
 def fetch_top_artists(sp, limit=20):
@@ -102,13 +105,21 @@ def main():
     st.title("🎶 VibeSync")
     st.subheader("Spotify Artist Compatibility Analyzer")
 
-    sp = authenticate_spotify()
+    # Check if spotify session exists already
+    if 'sp' not in st.session_state:
+        st.session_state.sp = authenticate_spotify()
+
+    sp = st.session_state.sp
 
     if sp:
         st.sidebar.success("Spotify Connected!")
         if st.sidebar.button("Logout"):
             import os
-            os.remove(".spotify_cache")
+            if os.path.exists(".spotify_cache"):
+                os.remove(".spotify_cache")
+            for key in ['sp', 'token_info']:
+                st.session_state.pop(key, None)
+            st.query_params.clear()
             st.rerun()
 
         artists_df = fetch_top_artists(sp)
