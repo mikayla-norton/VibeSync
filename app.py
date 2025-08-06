@@ -22,21 +22,23 @@ def authenticate_spotify():
     token_info = oauth.get_cached_token()
 
     if not token_info:
-        auth_url = oauth.get_authorize_url()
-        st.markdown(f"[🎧 Authenticate with Spotify]({auth_url})")
-
         query_params = st.query_params
         code = query_params.get("code")
 
         if code:
             try:
-                token_info = oauth.get_access_token(code)
-                st.experimental_set_query_params()
+                token_info = oauth.get_access_token(code, as_dict=False)
+                st.query_params.clear()
             except spotipy.SpotifyOauthError:
                 st.error("Authentication failed. Please retry.")
                 return None
+        else:
+            auth_url = oauth.get_authorize_url()
+            st.markdown(f"[🎧 Authenticate with Spotify]({auth_url})")
+            st.stop()
 
-    return spotipy.Spotify(auth=token_info['access_token']) if token_info else None
+    return spotipy.Spotify(auth=token_info) if token_info else None
+
 
 # ------------------ Data Fetching ------------------ #
 def fetch_top_artists(sp, limit=20):
@@ -55,7 +57,7 @@ def build_genre_profile(artists_df):
     genres = [genre for genres_list in artists_df.genres for genre in genres_list]
     vectorizer = TfidfVectorizer()
     genre_matrix = vectorizer.fit_transform(genres)
-    genre_scores = np.array(genre_matrix.sum(axis=0)).ravel()
+    genre_scores = np.asarray(genre_matrix.sum(axis=0)).ravel()
 
     return vectorizer, genre_scores
 
@@ -67,7 +69,7 @@ def calculate_compatibility(sp, user_vectorizer, user_genre_scores, artist_names
             artist = search_result['artists']['items'][0]
             artist_genres = artist['genres']
             if artist_genres:
-                artist_vec = user_vectorizer.transform(artist_genres).sum(axis=0)
+                artist_vec = np.asarray(user_vectorizer.transform(artist_genres).sum(axis=0)).ravel()   
                 score = cosine_similarity([user_genre_scores], artist_vec)
                 compat_results.append({'artist': name, 'compatibility': score[0][0]})
             else:
@@ -79,14 +81,14 @@ def calculate_compatibility(sp, user_vectorizer, user_genre_scores, artist_names
 
 # ------------------ Streamlit UI ------------------ #
 def main():
-    st.title("🎶 VibeSync")
-    st.subheader("Spotify Artist Compatibility Analyzer")
     st.set_page_config(
         page_title='VibeSync',
         layout='wide',
         initial_sidebar_state='expanded',
         page_icon=':musical_note:'
     )
+    st.title("🎶 VibeSync")
+    st.subheader("Spotify Artist Compatibility Analyzer")
 
     sp = authenticate_spotify()
 
@@ -105,16 +107,17 @@ def main():
         st.write("### Check Compatibility with New Artists")
         artist_input = st.text_area("Enter artist names (comma-separated):")
 
-        if st.button("Analyze Compatibility") and artist_input.strip():
-            user_vectorizer, user_genre_scores = build_genre_profile(artists_df)
-            new_artist_list = [name.strip() for name in artist_input.split(",")]
-            compat_df = calculate_compatibility(sp, user_vectorizer, user_genre_scores, new_artist_list)
+        if st.button("Analyze Compatibility", key="analyze_btn"):
+            if artist_input.strip():
+                user_vectorizer, user_genre_scores = build_genre_profile(artists_df)
+                new_artist_list = [name.strip() for name in artist_input.split(",")]
+                compat_df = calculate_compatibility(sp, user_vectorizer, user_genre_scores, new_artist_list)
 
-            st.write("#### Compatibility Scores")
-            st.dataframe(compat_df, use_container_width=True)
+                st.write("#### Compatibility Scores")
+                st.dataframe(compat_df, use_container_width=True)
+            else:
+                st.warning("Please enter at least one artist name.")
 
-        elif st.button("Analyze Compatibility"):
-            st.warning("Please enter at least one artist name.")
 
 if __name__ == "__main__":
     main()
