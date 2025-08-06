@@ -5,6 +5,9 @@ import pandas as pd
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import os
+if os.path.exists(".spotify_cache"):
+    os.remove(".spotify_cache")
 
 # ------------------ Configuration ------------------ #
 SPOTIFY_SCOPES = "user-top-read,user-library-read"
@@ -17,27 +20,36 @@ def authenticate_spotify():
         client_secret=st.secrets["spotify"]["client_secret"],
         redirect_uri=REDIRECT_URI,
         scope=SPOTIFY_SCOPES,
-        cache_path=".spotify_cache"
+        cache_path=".spotify_cache",
+        show_dialog=True
     )
+    
     token_info = oauth.get_cached_token()
 
     if not token_info:
         query_params = st.query_params
         code = query_params.get("code")
 
-        if code:
-            try:
-                token_info = oauth.get_access_token(code, as_dict=False)
-                st.query_params.clear()
-            except spotipy.SpotifyOauthError:
-                st.error("Authentication failed. Please retry.")
-                return None
-        else:
+        if not code:
             auth_url = oauth.get_authorize_url()
             st.markdown(f"[🎧 Authenticate with Spotify]({auth_url})")
             st.stop()
+        else:
+            try:
+                token_info = oauth.get_access_token(code, check_cache=False)
+                st.query_params.clear()
+            except spotipy.SpotifyOauthError as e:
+                st.error(f"Spotify authentication failed: {e}")
+                auth_url = oauth.get_authorize_url()
+                st.markdown(f"[🎧 Retry Spotify Login]({auth_url})")
+                st.stop()
 
-    return spotipy.Spotify(auth=token_info) if token_info else None
+    # Verify token validity explicitly (refresh if needed)
+    if oauth.is_token_expired(token_info):
+        token_info = oauth.refresh_access_token(token_info['refresh_token'])
+
+    return spotipy.Spotify(auth=token_info["access_token"])
+
 
 
 # ------------------ Data Fetching ------------------ #
